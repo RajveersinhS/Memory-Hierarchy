@@ -1,0 +1,761 @@
+\UseRawInputEncoding
+\documentclass[12pt , a4paper ] {article}
+\usepackage{geometry}
+\usepackage{graphicx}
+\usepackage{longtable}
+\usepackage{fancyhdr}
+\usepackage{array}
+\usepackage{listings}
+\usepackage{color}
+\usepackage{hyperref}
+\usepackage{amsmath}
+\usepackage{titlesec}
+\usepackage{float}
+\usepackage{placeins} 
+\usepackage{enumitem}
+\usepackage{booktabs} % Add this to your preamble if not already present
+\usepackage{graphicx} % For resizebox
+
+\geometry{a4paper, margin=1in}
+\pagestyle{fancy}
+\fancyhf{}
+\rhead{\thepage}
+\lhead{Computer Architecture}
+
+\definecolor{codegray}{gray}{0.95}
+\lstset{
+  backgroundcolor=\color{codegray},
+  basicstyle=\ttfamily\small,
+  breaklines=true,
+  columns=fullflexible
+}
+
+\title{Memory Hierarchy \\ \large Computer Architecture Lab}
+\author{
+Vivek Parmar (29943791) -- EMM \\
+\and
+Bhumireddy Ramanjaneya Reddy (29743760) –- EMM\\
+\and
+Rajveersinh Narendrasinh Suratiya (10544165) -- EMM
+}
+
+
+
+\date{\today}
+
+\begin{document}
+
+\maketitle 
+
+\begin{center}
+    \centering
+    \includegraphics[width=0.5\linewidth]{rwu (1).png}
+    \vspace{1cm}\\
+    \textbf{\large{Hochschule Ravensburg-Weingarten}}\\
+    \vspace{0.5cm}
+    \textbf{\large{University of Applied Sciences}}\\
+    \vspace{1cm}
+    \textbf{Under the guidance}\\
+    \vspace{0.5cm}
+     \textbf{ of}\\
+    \vspace{0.5cm}
+    \textbf{Prof. Dr. Andreas Siggelkow}\\
+    \thispagestyle{empty}
+\end{center}
+\newpage
+\tableofcontents
+\newpage
+
+
+
+\section{Abstract}
+
+This report explores the fundamental concept of Memory Hierarchy in computer architecture, a crucial design principle implemented to bridge the widening performance gap between fast Central Processing Units (CPUs) and slower, larger main memories. It delves into the components of a typical memory hierarchy, including Registers, Caches (L1, L2, etc.), Main Memory, and Mass Storage. Special emphasis is placed on the role of the Memory Management Unit (MMU) in virtual memory and paging, and the detailed operation, organization, and performance metrics of caches. The report integrates specifications and detailed simulation results from a direct-mapped cache implementation to provide a practical understanding of these concepts.
+
+\newpage
+
+\section{Introduction to Memory Hierarchy}
+The memory hierarchy in computer architecture refers to the structured arrangement of various memory components, organized into levels based on their speed, capacity, and cost. This hierarchical design is fundamental to modern computing systems, primarily serving to optimize overall system performance and cost-efficiency. Processors operate at significantly higher speeds than traditional main memory, creating a substantial "speed gap" or "memory wall" This disparity means that without an efficient memory management system, the Central Processing Unit (CPU) would spend excessive time idling, waiting for data from slower memory, leading to severe under utilization and inefficient system performance. The primary objective of this intricate organization is to strike an optimal balance between memory capacity, access time, and cost, thereby reducing the average memory access time and enhancing the system's responsiveness and throughput. This architectural principle is deeply rooted in the concept of locality of reference, a program behavior where memory accesses tend to cluster in time and space.
+
+The persistent challenge posed by the increasing divergence between CPU speeds and memory access times, often termed the "memory wall," fundamentally drives the design and continuous evolution of memory hierarchies. This architectural response is not merely an optional performance enhancement but a critical design imperative for high-performance computing. It demonstrates how foundational physical limitations in hardware necessitate sophisticated architectural innovations to ensure efficient and effective system operation. Without such a layered approach, the immense processing power of modern CPUs would be largely squandered in waiting states, severely limiting computational throughput.
+\newpage
+\section{memory hierarchy requirements}
+
+\begin{longtable}{| p{5cm} | p{5cm} | p{5cm} | p{3cm} | p{4cm} | p{4cm} |}
+\hline
+
+\textbf{Feature} & \textbf{Requirement} & \textbf{Specification Example} \\
+\hline
+\endfirsthead
+%\multicolumn{6}{c}%
+%{\tablename\ \thetable{} -- continued from previous page} \\
+\hline
+\textbf{Feature} & \textbf{Requirement} & \textbf{Specification Example} \\
+\hline
+\endhead
+\hline
+%\multicolumn{6}{r}{\textit{Continued on next page}} \\
+\endfoot
+\hline
+\endlastfoot
+
+\textbf{Latency (Speed) } &  Must minimize delay for frequent data access & L1 Cache: $\sim$1–5 cycles, DRAM: $\sim$100 ns, SSD: $\sim$100 $\mu$s \\
+\hline
+\textbf{Bandwidth} & Must support sufficient data throughput to match CPU demand   & DDR4: up to 25.6 GB/s, PCIe SSD: up to 3.5 GB/s \\
+\hline
+
+\textbf{Capacity} & Should scale from small (registers) to massive (tape storage) & Registers: bytes, DRAM: GBs, HDD: TBs, Tape: PBs \\
+\hline
+
+\textbf{Cost per Bit} & Should decrease from top to bottom hierarchy & Registers: highest, HDD/Tape: lowest \\
+\hline
+
+\textbf {Volatility} & Must ensure appropriate retention properties &Registers/Cache/DRAM: volatile; SSD/HDD/Tape: non-volatile \\
+    \hline
+
+\textbf {Proximity to CPU } & Closer levels should have faster access & L0/L1 inside CPU, RAM on motherboard, SSD via I/O bus \\
+\hline
+    
+\textbf{Power Consumption} & Should be optimized based on speed and access frequency & SRAM (cache): high; DRAM: medium; SSD: lower per GB \\
+\hline
+
+\textbf{Scalability} & Should support increasing program/data demands & DRAM expandable to 128GB+, storage to PBs+ \\
+\hline
+
+\textbf{Access Type} & Random/Sequential access depending on level & Registers/Cache: random, HDD/Tape: mostly sequential \\
+\hline
+
+\textbf{Management} & Should be managed appropriately by hardware or OS & Registers/Cache: hardware, DRAM: hardware+OS, Disk: OS \\
+\hline
+\textbf{Locality of Reference} & Must exploit spatial and temporal locality & Cache levels optimize based on access patterns \\
+\hline
+
+\textbf{Error Handling} & Should support error detection and correction at critical levels &  ECC in DRAM, parity in cache \\
+\hline
+
+\end{longtable}
+\newpage
+\subsection{Key Characteristics: Speed, Capacity, Cost}
+The design of a memory hierarchy is a direct manifestation of the inherent trade-offs between speed, capacity, and cost for different memory technologies. It is physically and economically unfeasible to create a single memory technology that simultaneously offers very high speed, very large capacity, and very low cost.
+
+\begin{itemize}
+    \item \textbf{Speed (Access Time):} Memory levels closer to the CPU offer significantly faster access times, measured in CPU cycles or nanoseconds, reducing delays in data processing. This rapid access is crucial for minimizing CPU idle time. However, this speed comes at a premium in terms of cost and limits in capacity. As one moves down the hierarchy (away from the CPU), the access time increases, reflecting the trade-off for larger capacities and lower costs.
+    
+    \item \textbf{Capacity:} Memory levels further from the CPU provide much larger storage capacities, typically measured in gigabytes (GiB), terabytes (TiB), or even exabytes (EiB). These larger capacities are more cost-effective but inherently slower. Conversely, the fastest memory levels, such as registers and caches, have the smallest capacities due to their high cost per bit and the complex technology required for ultra-rapid access.
+
+    \item \textbf{Cost:} High-speed memory, such as registers and cache, is considerably more expensive per bit due to the advanced technologies and complex manufacturing processes required for rapid access. As one moves down the hierarchy, the cost per bit decreases significantly, allowing for larger storage volumes at a more affordable price point. This cost-performance ratio dictates that as speed increases, the cost per MB also rises, restricting the widespread use of high-speed memory in large capacities.
+\end{itemize}
+
+This layered approach ensures that frequently accessed data resides in faster, albeit smaller and more expensive, memory, while less frequently used or bulk data is stored in slower, larger, and more affordable memory options. The effectiveness of this strategy hinges entirely on the "locality of reference" exhibited by most computer programs. Without this program behavior, where memory accesses tend to cluster, a hierarchical system would be highly inefficient. If programs accessed memory locations randomly, the probability of finding data in a faster, smaller cache would be low, leading to frequent, costly accesses to slower main memory. Therefore, the economic viability and performance benefits of the hierarchy are directly enabled by the predictable patterns of data access in programs, demonstrating that computer architecture design is fundamentally an exercise in intelligent compromise and resource allocation, exploiting statistical properties of software behavior.
+
+
+
+\subsection{Principle of Locality}
+
+\begin{itemize}
+    \item \textbf{Temporal Locality:} Recently accessed data is likely to be accessed again soon. This refers to the tendency for a program to access the same data or instruction items repeatedly within a short period. If a data item is referenced, there is a high probability that it will be referenced again soon. Caches exploit this by keeping recently accessed data in faster memory levels.
+
+    \item \textbf{Spatial Locality:} Nearby data to a recently accessed location is likely to be accessed. This refers to the tendency for a program to access memory locations that are physically close to recently accessed locations. When a CPU fetches data from a particular memory address, it is highly probable that data at nearby addresses will be needed soon. Caches leverage this by fetching entire blocks of data (cache lines) into the cache, anticipating future accesses to adjacent data.
+\end{itemize}
+
+
+\section{Components of the Memory Hierarchy}
+The memory hierarchy typically comprises multiple levels, each characterized by distinct performance, capacity, and cost attributes. These levels work in concert to present a seemingly large and fast memory space to the CPU.
+
+\subsection{Memory Hierarchy Block diagram}
+\includegraphics[width=0.8\textwidth]{Memory Hierarchy.png}
+
+\subsection{Memory Hierarchy Architecture}
+\includegraphics[width=0.8\textwidth]{Memory Architecture.png}
+
+\subsection{Registers}
+Registers are the fastest storage, built into the CPU. They are small in size, holding current CPU instructions/data. Processor registers represent the highest and fastest level of the memory hierarchy. These are small, high-speed storage locations located directly within the CPU. They hold data and instructions that are currently being processed or are immediately needed by the CPU's arithmetic logic unit (ALU) and control unit. Access to registers is typically achieved within a single CPU clock cycle, making them the fastest possible memory access. Their capacity is extremely limited, usually a few thousand bytes, due to their high cost and the need for ultra-fast access.
+
+\subsection{Cache Memory}
+Cache memory acts as a crucial intermediate high-speed buffer between the CPU and main memory. Its primary role is to store copies of frequently accessed data and instructions from main memory, thereby significantly reducing the average memory access time. Cache memory operates on the principle of locality of reference, anticipating that recently accessed data or data near it will be needed again soon.
+\begin{itemize}
+    \item \textbf{Small, fast storage (SRAM)}.
+
+    \item \textbf{L1:} Closest to CPU, split into I-cache and D-cache. For instance, an Intel Haswell Mobile processor (circa 2013) featured 128 KiB L1 instruction and data caches, with a best access speed of around 700 GB/s for L1 data cache.
+
+    \item \textbf{L2:} Larger and slower than L1. An Intel Haswell example shows a 1 MiB shared L2 cache with best access speeds around 200 GB/s.
+
+    \item \textbf{L3:} Shared among cores. Its capacity is greater than L2, but its access time is slower. For the Haswell example, it was a 6 MiB shared cache with best access speeds around 100 GB/s.
+
+    \item \textbf{L4 Cache:} Some high-performance systems include an L4 cache, which is even larger and slower than L3. It often serves as a victim cache or a large buffer for specific workloads, sometimes implemented using eDRAM (embedded DRAM). An Intel Haswell example shows a 128 MiB L4 cache with best access speeds around 40 GB/s.
+\end{itemize}
+The efficiency of cache memory is primarily measured by the cache hit ratio, which is the percentage of memory accesses that find the required data in the cache. A higher hit ratio indicates better cache utilization and improved system performance. The performance data for the Intel Haswell Mobile processor, revealing access speeds of L1 (700 GB/s), L2 (200 GB/s), L3 (100 GB/s), L4 (40 GB/s), and Main Memory (10 GB/s), illustrates an exponential drop-off in performance across hierarchy levels. 
+
+This dramatic decrease means that the performance penalty for a cache miss that forces data retrieval from a lower, slower level, especially main memory, is extremely severe. A single miss can significantly negate the benefits of many cache hits, underscoring why even marginal improvements in cache hit rates, often achieved through software optimization, can yield disproportionately large gains in overall system performance. This highlights the critical importance of keeping data as high up in the hierarchy as possible.
+
+\subsection{Main Memory (RAM)}
+Main memory, commonly known as Random Access Memory (RAM), serves as the primary working space for the CPU. It holds programs and data that are currently in active use. RAM is significantly larger in capacity than cache memory but operates at a slower speed. Typical main memory capacities are in the Gigabytes (GB), with best access speeds around 10 GB/s.
+
+\begin{itemize}
+      \item Primary working memory.
+      \item Technology: DRAM.
+      \item Larger and slower than cache.
+      \item \textbf{Types of RAM:}
+        \begin{itemize}
+            \item \textbf{DRAM (Dynamic RAM):} The most common type of main memory. DRAM stores binary information as a charge on capacitors, which gradually leak over time. Consequently, DRAM requires periodic "refreshes" to maintain data integrity.
+            \item \textbf{SRAM (Static RAM):} Faster and more expensive than DRAM, SRAM stores data using flip-flops and does not require periodic refreshes. Due to its speed and cost, SRAM is predominantly used for cache memory.\\
+        \end{itemize}
+ \end{itemize}   
+\subsection{Virtual Memory}
+Main memory works in conjunction with secondary storage to implement virtual memory. This technique provides a larger address space than the physical RAM, allowing for the execution of programs larger than physical memory and improving multitasking capabilities through paging and swapping.
+
+Virtual memory maps logical addresses used by programs to physical addresses in main memory, and when a program accesses a page not in main memory, a \textbf{page fault} occurs, prompting the operating system to retrieve the page from secondary storage.
+
+
+\subsection{Mass Storage}
+
+Mass storage provides non-volatile, long-term data persistence, meaning data is retained even when power is off. These devices offer much larger capacities compared to main memory, typically in terabytes (TiB), but with significantly slower access times.
+
+\begin{itemize}
+  \item Persistent storage devices include traditional \textbf{Hard Disk Drives (HDDs)} and modern \textbf{Solid State Drives (SSDs)}.
+
+  \item They provide the largest capacity and the lowest cost per byte of storage in the memory hierarchy.
+\end{itemize}
+
+\textbf{HDD (Hard Disk Drive):} Traditional secondary storage devices that use spinning magnetic platters to read and write data. HDDs are cost-effective and provide very high storage capacity, but they are considerably slower than modern solid-state solutions due to mechanical components.
+
+\textbf{SSD (Solid State Drive):} Utilize flash memory to store data, offering much faster performance compared to HDDs. SSDs significantly improve system boot times, application loading, and overall responsiveness. As of 2017, consumer SSDs could achieve best access speeds of about 2000 MB/s.
+
+SSDs are increasingly replacing HDDs in many applications due to their higher performance and lower latency. The advent and widespread adoption of SSDs introduce a new, significantly faster secondary storage medium, challenging the traditional fixed performance characteristics of this tier.
+
+This demonstrates that the memory hierarchy is not a static model but a dynamic concept constantly being redefined by technological advancements. New technologies can create sub-tiers or blur the lines between existing tiers, necessitating continuous re-evaluation of optimal memory management strategies.
+
+
+\subsection{Tertiary and Off-line Storage}
+These levels are designed for archival purposes, backup, and storing very large datasets that are accessed infrequently. They offer the highest capacities at the lowest cost per bit, but with the slowest access times.
+\begin{itemize}
+    \item \textbf{Nearline Storage (Tertiary Storage):} Data is not immediately available but can be brought online quickly without human intervention. Examples include robotic tape libraries. As of 2013, best access speeds were around 160 MB/s, with capacities up to exabytes.
+    \item \textbf{Offline Storage:} Data is not immediately available and requires human intervention to bring online. Examples include magnetic tapes or optical discs manually loaded into a drive.
+\end{itemize}
+\subsubsection{Memory Hierarchy Levels and Characteristics}
+
+
+
+\begin{table}[h!]
+    \centering
+    \caption{Memory Hierarchy Levels and Key Characteristics}
+    \label{tab:memory_hierarchy_levels}
+    \resizebox{\textwidth}{!}{  % Ensures the table fits horizontally
+    \begin{tabular}{|l|l|l|l|l|l|}
+        \hline
+        \textbf{Level} & \textbf{Capacity} & \textbf{Speed} & \textbf{Technology} & \textbf{Cost/bit} & \textbf{Volatile} \\
+        \hline
+        Registers & Few KB & 1 cycle & Flip-flops & Highest & Yes \\
+        L1 Cache & 32–128 KB & $\sim$700 GB/s & SRAM & Very High & Yes \\
+        L2 Cache & 256 KB–2 MB & $\sim$200 GB/s & SRAM & High & Yes \\
+        L3 Cache & 2–30 MB & $\sim$100 GB/s & SRAM & Med-High & Yes \\
+        L4 Cache & 32–128 MB & $\sim$40 GB/s & SRAM/eDRAM & Medium & Yes \\
+        Main Memory (RAM) & GBs & $\sim$10 GB/s & DRAM & Med-Low & Yes \\
+        SSD & TBs & $\sim$2000 MB/s & Flash & Low & No \\
+        HDD & TBs & $\sim$100–200 MB/s & Magnetic & Very Low & No \\
+        Tertiary Storage & PB–EB & $\sim$160 MB/s & Tape/Optical & Lowest & No \\
+        Offline Storage & Unlimited & Manual & Tape/Optical & Lowest & No \\
+        \hline
+    \end{tabular}
+    }
+\end{table}
+
+\newpage
+
+\section{Memory Management Unit (MMU)}
+
+\subsection{Virtual Memory and Paging}
+
+\begin{itemize}
+  \item Provides a large virtual address space, allowing programs to use more memory than physically available.
+  \item \textbf{Paging:} Physical memory is divided into fixed-size frames, and virtual memory is divided into pages of the same size.
+  \item A virtual address consists of two parts: \textbf{Page Number} and \textbf{Offset}.
+  \item \textbf{Page Table:} Maintains the mapping from virtual pages to physical frames.
+  \item \textbf{Replacement Algorithms:} When memory is full, paging uses algorithms such as:
+  \begin{itemize}
+    \item Least Recently Used (LRU)
+    \item Least Frequently Used (LFU)
+    \item First-In-First-Out (FIFO)
+    \item Random
+  \end{itemize}
+  \item \textbf{Example:} A program of size 16 MB requires 24-bit addressing. If the page size is 2 KB (i.e., 11-bit offset), the virtual address has a 13-bit page number (8192 pages). With a physical memory size of 64 KB, only 32 pages (5-bit physical frame number) can be loaded at once.
+\end{itemize}
+
+\subsection{Memory Segmentation}
+
+\begin{itemize}
+  \item Memory is logically divided into segments such as code, data, and stack.
+  \item Each segment is addressed by a segment number and an offset within that segment.
+  \item A \textbf{Segment Table} maps segment numbers to physical base addresses.
+  \item \textbf{Combined Paging and Segmentation:} Used in some systems to take advantage of both flexible segmentation and efficient paging.
+\end{itemize}
+
+\subsection{Translation Look-Aside Buffer (TLB)}
+
+\begin{itemize}
+  \item A special cache used to store recent virtual-to-physical address translations.
+  \item \textbf{TLB Hit:} Address translation found in TLB, speeding up memory access.
+  \item \textbf{TLB Miss:} Page table must be accessed to retrieve the translation, which is then cached in the TLB for future access.
+\end{itemize}
+
+\section{Cache Memory Details and Performance}
+
+\subsection{Cache Function and Operation}
+
+\begin{itemize}
+  \item \textbf{Cache Hit:} When the requested data is found in the cache, resulting in fast access.
+  \item \textbf{Cache Miss:} When the requested data is not in the cache and must be fetched from the slower main memory.
+  \item \textbf{Replacement Policy:} When the cache is full, a line must be evicted based on a policy (e.g., LRU, FIFO) to make room for new data.
+\end{itemize}
+
+
+\subsection{Cache Structure}
+\begin{figure}[H]
+    \centering
+ \includegraphics[width=1.0\textwidth]{Cache_mapping.png}
+\end{figure}
+
+
+The diagram illustrates the process of how a cache memory system works in conjunction with main memory to speed up data access for a processor.
+
+Here's a step-by-step explanation:
+
+\textbf{Memory Address from Processor:} 
+
+The process begins when the processor needs to access a piece of data. It generates a memory address for that data.
+
+\textbf{Cache Lookup (Simultaneous Comparison):} 
+
+This memory address is first sent to the cache. The cache is a smaller, faster memory designed to store frequently used data. The diagram shows that the incoming memory address is compared simultaneously with all stored addresses within the cache. This simultaneous comparison is a hallmark of a fully associative cache (or at least conceptually represents a highly parallel lookup mechanism).
+
+\textbf{Cache Hit (Address Found):}
+
+If the incoming memory address matches an Address already stored in the cache (an "Address found" scenario), it's called a cache hit.
+In this case, the corresponding Data block associated with that address in the cache is immediately retrieved and sent to the processor as the "Address location." This is the fastest access path.
+
+
+\textbf{Cache Miss (Address Not Found):}
+
+If the incoming memory address does not match any of the addresses currently stored in the cache (an "Address not found in cache" scenario), it's called a cache miss.
+When a cache miss occurs, the system must then access the Main Memory to retrieve the required data. The diagram indicates "Main memory accessed if address not in cache."
+\textbf{Main Memory Access and Cache Update:}
+
+Once the data is retrieved from main memory, it is then sent to the processor.
+Crucially, a copy of this data (along with its address) is also brought into the cache. This is not explicitly shown as a flow in the diagram, but it's an inherent part of how caches work: when a miss occurs, the fetched data is typically placed in the cache so that subsequent requests for the same data can be served from the faster cache. This ensures that frequently accessed data eventually resides in the cache.
+
+\section{Cache Associativity}
+
+\begin{itemize}
+  \item \textbf{Fully Associative:} Any block to any line.
+  \item \textbf{Direct Mapped:} One block to one line.
+  \item \textbf{Set-Associative:} Block maps to set of lines.
+\end{itemize}
+
+\subsection*{Direct-Mapped Cache}
+
+\begin{itemize}
+  \item \textbf{Specifications:}
+    \begin{itemize}
+      \item CACHE\_SIZE = 1024 bytes
+      \item BLOCK\_SIZE = 16 bytes
+      \item ADDR\_WIDTH = 32 bits
+      \item CACHE\_LINES = 64
+      \item BLOCK\_ADDR\_WIDTH = 4 bits
+      \item INDEX\_WIDTH = 6 bits
+      \item TAG\_WIDTH = 22 bits
+    \end{itemize}
+\end{itemize}
+
+ \begin{itemize}
+  \item \textbf{Read Operation:} When a read operation occurs, the cache first checks if the data is available by checking the valid bits. If valid, data is read from cache and \texttt{cache\_hit} is set. If not valid, data is read from DRAM and \texttt{cache\_miss} is set.
+  
+  \item \textbf{Write Operation:} When a write operation occurs, data is written to the cache memory, and \texttt{dirty\_bits} are set. The data is also written to the DRAM. If the cache line is not valid or the tag does not match, the new data replaces the existing data in the cache line.
+\end{itemize}
+
+\section{Cache Design Parameters}
+\begin{itemize}
+  \item \textbf{Cache Size, Block Size, Associativity, Replacement Policy, Write Policy}.
+\end{itemize}
+
+
+\section{Cache Miss Types}
+
+\textbf{Compulsory Miss:} First access. \\
+\textbf{Capacity Miss:} Cache too small. The data has been in the cache but was removed, and is now needed again. This can only be avoided by using larger caches. \\
+\textbf{Conflict Miss:} Fixed mapping causes overwrites. This occurs when there is free room or space occupied by useless data, but the fixed mapping forces an overwrite.
+
+\vspace{1em}
+
+\section{Cache Write Policies}
+
+\textbf{Write Through:} Write to both cache and memory. Data in cache and main memory is always consistent, which is important for I/O and multiprocessing. It is easier to implement than Write Back. A write buffer is often used to reduce CPU write stalls. \\
+
+\textbf{Write Back:} Write to cache only; update memory on eviction. Writes occur at the speed of cache. \\
+
+\textbf{Dirty Bit:} Indicates if cache line is modified. A status bit called a dirty bit is used to indicate whether the block was modified while in cache; if not, the block is not written to main memory. This policy uses less memory bandwidth than write-through.
+
+\section{ Cache Replacement Policies }
+
+When a cache block needs to be replaced, various algorithms are used to decide which block to evict:
+
+\textbf{In Direct-Mapped Caches:} As detailed in Section 4.3.1, no explicit replacement policy is needed. The new block directly replaces the old one based on its index.
+
+\textbf{For Set-Associative and Fully Associative Caches:}
+\begin{itemize}
+    \item \textbf{LRU (Least Recently Used):} Removes the entry that has not been accessed for the longest time. Generally considered optimal but complex to implement accurately.
+    \item \textbf{FIFO (First-In, First-Out):} Removes the oldest entry in the cache.
+    \item \textbf{LFU (Least Frequently Used):} Removes the entry that has been accessed least often. Difficult to track perfectly in real systems.
+    \item \textbf{RANDOM:} A random entry is removed. Simplest to implement.
+\end{itemize}
+
+\subsection{Cache Performance Metrics }
+
+\textbf{Average Memory Access Time (AMAT)}:
+\
+For a single-level cache with no stalls for hits :
+\
+
+\textbf{Hit Rate ($H_1$ or $P_{\text{hit-rate}}$)}: The fraction of memory accesses found in the cache.
+
+\textbf{Miss Rate ($P_{\text{miss-rate}}$)}: The fraction of memory accesses not found in the cache ($1 - H_1$).
+
+\textbf{Miss Penalty ($N_{\text{miss-penalty}}$)}: The time (in CPU clock cycles) required to fetch a block from the next lower level of the memory hierarchy.
+
+\textbf{Memory Stall Cycles per Memory Access ($N_{\text{scma}}$)}:
+\
+
+\textbf{Memory Stall Cycles per Instruction ($N_{\text{scai}}$)}:
+\[N_{\text{scai}} = N_{\text{scma}} \times N_{\text{mai}}\]
+where $N_{\text{mai}}$ is memory accesses per instruction.
+
+\textbf{Total CPU Time ($T_{\text{CPU}}$)}:
+\
+\[\text{CPI} = \text{CPI}_{\text{exec}} + N_{\text{scai}}\]
+
+\subsection{Unified vs. Split Caches (Harvard vs. Princeton Architectures)}
+
+\textbf{Princeton (Unified) Architecture }: Uses a single cache for both instructions and data.
+\begin{itemize}
+    \item \textbf{Pros:} Simpler design, dynamic balancing of space between instructions and data.
+    \item \textbf{Cons:} Potential for contention between instruction fetches and data accesses, leading to stalls.
+\end{itemize}
+
+\textbf{Harvard (Split) Architecture }: Uses separate L1 caches for instructions (I-cache) and data (D-cache).
+\begin{itemize}
+    \item \textbf{Pros:} Reduces contention, allowing parallel instruction fetch and data access.
+    \item \textbf{Cons:} More complex design, fixed partitioning of cache space.
+\end{itemize}
+
+\textbf{Performance Comparison }: The PDF provides examples comparing the performance (CPI, speed-up) of unified vs. split caches, and different write policies. The SPEC92 miss rates table is a valuable reference for typical performance values.
+
+\section{Cache Coherence: Problem and Protocols}
+
+\subsection{The Cache Coherence Problem in Multiprocessor Systems}
+In modern computer architectures, particularly multiprocessor or multicore systems, each Central Processing Unit (CPU) or core typically possesses its own local cache memory to enhance performance by providing rapid access to frequently used data. This architectural design, while beneficial for individual processor speed, introduces a significant challenge known as the cache coherence problem. The problem arises because multiple caches can store redundant copies of the same shared data block from main memory. If one processor modifies its cached copy of a shared memory block, this modification must be accurately and promptly reflected or invalidated in all other caches holding copies of that same block. Failure to maintain this consistency leads to an "incoherent state," where different caches hold conflicting values for the same memory location, both claiming to be up-to-date. This inconsistency can result in data corruption, unpredictable program behavior, and ultimately, incorrect program execution. The cache coherence problem is not exclusive to multiprocessor systems; it can also arise in uniprocessor systems when I/O operations directly modify main memory without the CPU's cache being aware. Therefore, cache coherence is essential to ensure that all processors maintain a consistent view of shared memory, which is paramount for reliable and correct program execution in a concurrent environment.
+
+The critical nature of cache coherence extends beyond mere performance optimization; it is a fundamental requirement for the *correctness* and *reliability* of any shared-memory multiprocessor system. If data is corrupted or inconsistent across caches, the program's logical execution can be fundamentally flawed, regardless of how fast the individual processors are. This means the system would produce incorrect results, rendering its high performance moot. Thus, cache coherence is a prerequisite for the very concept of shared memory to function predictably in a concurrent environment, ensuring that the system behaves as expected and preventing data inconsistencies due to concurrent updates.
+
+\subsection{Cache Coherence Requirements: Write Propagation and Transaction Serialization}
+To achieve and maintain cache coherence in multiprocessor systems, two fundamental requirements must be rigorously met:
+\begin{itemize}
+    \item \textbf{Write Propagation:} This requirement dictates that any change made to a data item in one cache must be rapidly and accurately propagated to all other caches that hold a copy of that same data item. This ensures that all copies eventually reflect the most recent modification.
+    \item \textbf{Transaction Serialization:} This is a more subtle but equally crucial requirement. It mandates that all processors in the system must observe reads and writes to a single memory location in the exact same sequential order. Without transaction serialization, even if write propagation eventually updates all copies, different processors might perceive the order of updates differently, leading to an incoherent view of memory.
+\end{itemize}
+Consider an illustrative example : Suppose a shared variable $S$ (initially 0) is cached by four processors (P1, P2, P3, P4). If P1 changes $S$ to 10, and then P2 changes $S$ to 20, write propagation alone would ensure P3 and P4 eventually see both changes. However, without transaction serialization, P3 might observe P2's change (20) before P1's change (10), reading $S$ as 10, while P4 might observe the correct order (10 then 20), reading $S$ as 20. This scenario results in P3 and P4 having an inconsistent view of the memory, violating coherence. Therefore, the condition "writes to the same location must be sequenced" is critical: if location $X$ receives values $A$ and $B$ in that order from any two processors, no processor should ever read $X$ as $B$ and then later read it as $A$; the values must be seen in the specific order $A$ then $B$. Cache coherence is generally maintained at the granularity of cache blocks.
+
+The requirements of write propagation and transaction serialization highlight that cache coherence is fundamentally a distributed state management problem. It involves managing shared, mutable data across multiple independent, concurrently operating entities (processors or their caches). Ensuring that all participants agree on the order of operations (serialization) and eventually see the same data (propagation) in a distributed, high-speed environment is non-trivial and requires sophisticated coordination mechanisms. This perspective frames cache coherence as a hardware-level distributed systems challenge, where the protocols developed to solve it are essentially specialized forms of distributed consensus or consistency models, ensuring a single logical view of memory despite its physical distribution.
+
+\subsection{Cache Coherence Protocols}
+Cache coherence protocols are mechanisms designed to maintain data consistency in multiprocessor systems by coordinating cache operations and ensuring consistent data access across the system. These protocols define states, transitions, and communication mechanisms among caches to address the cache coherence problem. The two main types of cache coherence mechanisms are snooping and directory-based protocols.
+
+\subsubsection{Snooping Protocols (Write-Invalidate, Write-Update)}
+Snooping protocols are commonly used in bus-based multiprocessor systems. In this mechanism, individual cache controllers "snoop" or monitor the shared bus for memory access requests from other processors. When a processor initiates a read or write operation to a memory location, all other caches containing a copy of that location observe the transaction on the bus and react accordingly to maintain coherence. Snooping protocols tend to be faster if sufficient bus bandwidth is available because all transactions are broadcast and seen by all processors. However, snooping is less scalable for very large systems, as every request must be broadcast to all nodes, requiring the bus size and bandwidth to grow with the system, which can lead to bus contention.
+
+Write propagation in snoopy protocols can be implemented via two main policies:
+\begin{itemize}
+    \item \textbf{Write-Invalidate:} When a processor writes to a cached memory block, an invalidation signal is broadcast on the bus. Other caches holding a copy of that block observe this signal and invalidate their local copies. Subsequent accesses to that block by other processors will result in a cache miss, forcing them to fetch the new, updated value from main memory or the modifying cache. This is a common approach, as seen in the MESI protocol.
+    \item \textbf{Write-Update:} In this policy, when a processor writes to a cached memory block, the new data is broadcast on the bus, and other caches holding a copy of that block update their local copies with the new data. This approach can reduce subsequent misses but may consume more bus bandwidth if data is frequently updated.
+\end{itemize}
+
+\subsubsection{Directory-Based Protocols}
+Directory-based protocols offer an alternative to snooping, particularly for larger-scale multiprocessor systems. In this system, a centralized directory (or distributed directory entries) maintains coherence by keeping track of which caches hold copies of each shared memory block. When a processor wants to modify an entry, it must first request permission from the directory. The directory then either updates or invalidates other caches holding that entry by sending point-to-point messages, rather than broadcasting to all caches. Directory-based systems typically have longer latencies due to a three-hop request/forward/respond process, but they use less bandwidth because messages are point-to-point rather than broadcast. This makes them more scalable for systems with a large number of processors (e.g., over 64 processors) where bus contention would be a significant issue for snooping protocols. While they generally have higher overhead due to the centralized directory, they can provide better scalability and reduce bus contention.
+
+\subsubsection{MESI Protocol (Modified, Exclusive, Shared, Invalid)}
+The MESI (Modified, Exclusive, Shared, Invalid) protocol is a widely adopted cache coherence protocol used in modern processors, including x86 and ARM architectures, to maintain data consistency across multiple caches in hierarchical memory systems. It is based on four possible states for each cache line, and transitions between these states define the protocol's operation.
+
+\paragraph{Detailed Explanation of MESI States}
+Each cache block can reside in one of four states:
+\begin{itemize}
+    \item \textbf{Modified (M):} A cache line in the Modified state indicates that the local processor has updated the data, and these changes have not yet been written back to main memory. The cache line is "dirty," meaning its content differs from the corresponding location in main memory, and it is the only cached copy. If another processor requests this data, the modifying cache must write it back to main memory before it can be shared or invalidated.
+    \item \textbf{Exclusive (E):} A cache line in the Exclusive state means it is present in only one core's cache, and its content is identical to the corresponding location in main memory. The cache line is "clean." This state is advantageous because a local write operation can transition directly to Modified without requiring a bus transaction, as no other copies exist.
+    \item \textbf{Shared (S):} A cache line in the Shared state indicates that it is present in multiple cores' caches, and its content is identical to the corresponding location in main memory. The cache line is "clean." Any write operation to a shared line requires an invalidation or update broadcast to other caches.
+    \item \textbf{Invalid (I):} A cache line in the Invalid state signifies that the data is not present in the cache, or the local copy is not valid and cannot be used. This state is typically entered when a cache line is evicted or invalidated by a coherence operation from another processor.
+\end{itemize}
+
+\paragraph{MESI State Transitions}
+The MESI protocol defines state transitions in response to local processor events (Local Read, Local Write, Eviction) and bus events (Bus Read, Bus Write, Bus Upgrade). These transitions ensure data consistency across caches.
+
+\usepackage{multirow}
+\usepackage{adjustbox}
+
+\begin{table}[h!]
+    \centering
+    \caption{MESI Cache Coherence Protocol State Table (Condensed)}
+    \label{tab:mesi_transitions}
+    \begin{adjustbox}{max width=\textwidth}
+    \begin{tabular}{|l|l|l|l|}
+        \hline
+        \textbf{Current State} & \textbf{Event} & \textbf{Next State} & \textbf{Bus Action} \\
+        \hline
+
+        \multirow{6}{*}{Invalid (I)} 
+        & Local Read (LR) & E / S & Bus Read \\
+        & Local Write (LW) & M & Bus Write \\
+        & Eviction (EV) & I & None \\
+        & Bus Read (BR) & I & None \\
+        & Bus Write (BW) & I & None \\
+        & Bus Upgrade (BU) & I & None \\
+        \hline
+
+        \multirow{6}{*}{Shared (S)} 
+        & Local Read (LR) & S & None \\
+        & Local Write (LW) & M & Bus Upgrade \\
+        & Eviction (EV) & I & None \\
+        & Bus Read (BR) & S & Respond Shared \\
+        & Bus Write (BW) & I & None \\
+        & Bus Upgrade (BU) & I & None \\
+        \hline
+
+        \multirow{6}{*}{Exclusive (E)} 
+        & Local Read (LR) & E & None \\
+        & Local Write (LW) & M & None \\
+        & Eviction (EV) & I & None \\
+        & Bus Read (BR) & S & Respond Shared \\
+        & Bus Write (BW) & I & None \\
+        & Bus Upgrade (BU) & I & None \\
+        \hline
+
+        \multirow{6}{*}{Modified (M)} 
+        & Local Read (LR) & M & None \\
+        & Local Write (LW) & M & None \\
+        & Eviction (EV) & I & Write Back \\
+        & Bus Read (BR) & S & Write Back \\
+        & Bus Write (BW) & I & Write Back \\
+        & Bus Upgrade (BU) & I & None \\
+        \hline
+    \end{tabular}
+    \end{adjustbox}
+\end{table}
+
+
+\textbf{Key Transitions Explained:}
+\begin{itemize}
+    \item When a processor performs a \textbf{Local Read} on an \textbf{Invalid} line, it transitions to \textbf{Exclusive} if no other caches hold the line (implying it's the sole copy), or to \textbf{Shared} if other caches might contain the line. A bus read is issued to fetch the data.
+    \item A \textbf{Local Write} on an \textbf{Invalid} line immediately transitions it to \textbf{Modified}, as the local processor now has the only, and dirty, copy. A bus write is issued.
+    \item If a processor writes to a line in the \textbf{Shared} state, it must transition to \textbf{Modified} and issue a "Bus Upgrade" signal to invalidate other shared copies.
+    \item A \textbf{Bus Read} for a line in the \textbf{Exclusive} state causes it to transition to \textbf{Shared}, as another cache now also has a copy. The data is supplied on the bus.
+    \item If a line in the \textbf{Modified} state is subject to a \textbf{Bus Read} or \textbf{Bus Write}, the modifying cache must write its dirty data back to main memory and then transition to \textbf{Shared} (for Bus Read) or \textbf{Invalid} (for Bus Write). This ensures the latest data is available and consistency is maintained.
+\end{itemize}
+These transitions, managed by hardware, allow the MESI protocol to ensure that cache lines are updated correctly and that data inconsistencies are avoided in a multiprocessor environment.
+\newpage
+\section{Optimizing Memory Hierarchy Performance}
+Optimizing the memory hierarchy is crucial for achieving optimal system performance by minimizing memory access latency and maximizing data throughput. This involves both software and hardware considerations.
+
+\subsection{Locality of Reference (Temporal and Spatial)}
+The principle of locality of reference is the cornerstone of effective memory hierarchy design and optimization. It describes the tendency of a computer program to access the same set of memory locations or nearby locations within a particular time period. Leveraging this principle allows cache memory to store frequently accessed data close to the CPU, significantly improving speed.
+\begin{itemize}
+    \item \textbf{Temporal Locality:} This refers to the tendency for a program to access the same data or instruction items repeatedly within a short period. If a data item is referenced, there is a high probability that it will be referenced again soon. Caches exploit this by keeping recently accessed data in faster memory levels.
+    \item \textbf{Spatial Locality:} This refers to the tendency for a program to access memory locations that are physically close to recently accessed locations. When a CPU fetches data from a particular memory address, it is highly probable that data at nearby addresses will be needed soon. Caches leverage this by fetching entire blocks of data (cache lines) into the cache, anticipating future accesses to adjacent data.
+\end{itemize}
+Understanding and exploiting locality is paramount for programmers and compilers to write "cache-friendly" code, which optimally uses the cache by increasing the hit rate.
+
+\subsection{Cache-Aware Software Optimization Strategies}
+Software optimization plays a significant role in improving memory hierarchy performance by ensuring that code execution patterns align with cache behavior. The goal is to minimize cache misses, optimize cache utilization, and reduce cache contention.
+
+\subsubsection{Data Structure and Algorithm Design}
+The choice and design of data structures and algorithms have a profound impact on cache performance.
+\begin{itemize}
+    \item \textbf{Cache-Aware Data Structures:} Designing data structures that are optimized for cache utilization, such as arrays and structs, is crucial. Storing data in contiguous memory locations increases spatial locality. For example, using a two-dimensional array (matrix) instead of a linked list to represent a graph can significantly improve cache performance because array elements are stored adjacently, allowing the cache to fetch entire rows as contiguous blocks.
+    \item \textbf{Data Alignment and Padding:} Properly aligning data structures to cache line boundaries can reduce cache misses and improve memory access efficiency. Padding can be used to ensure that frequently accessed data elements do not span multiple cache lines or, conversely, to prevent "false sharing" in multi-threaded environments where unrelated data items share the same cache line, leading to unnecessary invalidations.
+    \item \textbf{Cache-Friendly Algorithms:} Implementing algorithms that minimize cache misses and optimize cache utilization is essential. This often involves restructuring computations to enhance data locality. For instance, in game development, updating all components of the same type (e.g., all AI components for all entities) together, rather than updating all aspects of a single entity sequentially (AI, then physics, then rendering), increases the likelihood that the data needed for the update is already in the cache.
+\end{itemize}
+
+\subsubsection{Loop Optimization (Blocking/Tiling)}
+Loop tiling, also known as blocking, is a powerful technique used to improve cache performance in nested loops, particularly common in matrix operations and scientific computing. Instead of operating on entire rows or columns, blocked algorithms divide data into smaller "blocks" or "tiles" that fit within the cache. By processing these smaller chunks, data loaded into the faster levels of the memory hierarchy is reused extensively before being evicted, significantly reducing the number of cache misses. For example, in matrix multiplication, tiling ensures that sub-matrices are processed entirely within the cache, leading to substantial performance gains. This approach not only reduces effective memory access time but also lowers memory bandwidth requirements.
+
+\subsubsection{Prefetching}
+Prefetching involves loading data into the cache before it is actually needed by the CPU.This technique anticipates future data requirements based on access patterns and proactively brings data closer to the processor, thereby reducing the latency of subsequent accesses and minimizing cache misses.Prefetching can be implemented through hardware mechanisms (hardware prefetching) or explicit software instructions (software prefetching). 
+
+\subsubsection{Avoiding False Sharing}
+False sharing is a cache coherence issue that arises in multi-threaded programming when unrelated data items, accessed by different threads, happen to reside within the same cache line. Even if threads are accessing different variables, a write by one thread to its variable will invalidate the entire cache line in other caches, forcing them to reload the line unnecessarily. This leads to increased coherence traffic and reduced performance. To avoid false sharing, developers should ensure that data is properly aligned and padded, or use coherence-aware data structures that minimize the chance of unrelated shared data residing on the same cache line.
+
+\subsection{Role of Memory Controllers and Bus Architectures}
+Memory controllers and bus architectures are critical hardware components that facilitate and manage data transfer within the memory hierarchy, directly impacting system performance.
+
+\subsubsection{Memory Controller Functions}
+A memory controller is an essential component, often integrated directly into the CPU in modern systems (System on Chip - SoC), responsible for managing the interaction between the CPU and the system's main memory. Its primary function is to oversee the data flow, ensuring that read and write operations to memory are performed efficiently and accurately.
+\begin{itemize}
+    \item \textbf{Memory Access Scheduling:} The memory controller determines when data can be read or written to memory, scheduling requests to minimize collisions and delays.
+    \item \textbf{Address Mapping:} It translates logical memory addresses used by the CPU into physical memory addresses in the RAM, ensuring data is retrieved from the correct location.
+    \item \textbf{Refresh Management:} For DRAM, the controller manages periodic refresh cycles to prevent data loss due to capacitor charge leakage.
+    \item \textbf{Data Integrity and Error Correction:} Many controllers incorporate error detection and correction codes (ECC) to maintain data consistency and accuracy, especially critical in server systems.
+    \item \textbf{Memory Performance Optimization:} The controller manages parameters like data transfer speed, memory bus width, and other factors to optimize overall memory subsystem performance.
+\end{itemize}
+The memory controller also accepts requests for memory access from non-CPU devices, such as the GPU or devices performing Direct Memory Access (DMA) via the PCIe bus. Its evolution from a separate chip on the motherboard to an integrated component within the CPU has significantly reduced latency and improved data transfer speeds.
+
+\subsubsection{Types of Buses (Data, Address, Control)}
+A bus is a communication pathway that allows multiple hardware components to exchange data, addresses, and control signals within a computer system. These shared pathways are crucial for communication between the CPU, memory, and I/O devices.
+\begin{itemize}
+    \item \textbf{Data Bus:} This bus carries the actual data being transferred between the CPU, memory, and I/O devices. It is bi-directional, meaning data can move to and from the CPU. Its width (e.g., 64-bit) determines the amount of data that can be transferred in a single cycle; a wider data bus enables faster data transfer.
+    \item \textbf{Address Bus:} The Address Bus carries the memory location or I/O device address that the CPU wants to read from or write to. It is uni-directional, flowing only from the CPU to memory/I/O. The width of the address bus determines the maximum memory capacity the system can access (e.g., a 32-bit address bus can address up to 4 GB of memory).
+    \item \textbf{Control Bus:} This bus carries control signals that manage and coordinate operations among the CPU, memory, and I/O devices. Signals include memory read/write, I/O read/write, interrupt signals, and clock signals. The control bus ensures all components work in sync and that data is transferred correctly and efficiently.
+\end{itemize}
+These three buses work synergistically to enable the CPU to identify where to send or receive data (Address Bus), send or receive the actual data (Data Bus), and control and synchronize all operations (Control Bus).
+
+\subsubsection{Memory Bus Characteristics (Width, Speed, Protocols)}
+The memory bus is a specific type of system bus that facilitates communication between the CPU and main memory (RAM). Its characteristics directly impact a computer's performance and memory access capabilities.
+\begin{itemize}
+    \item \textbf{Width:} Memory bus width, measured in bits, determines the amount of data that can be transferred per clock cycle. Common widths include 64-bit, 128-bit, and 256-bit. A wider bus allows more data to be transferred simultaneously, significantly improving system performance. However, increasing width also adds complexity, cost, power consumption, and potential signal interference.
+    \item \textbf{Speed (Clock Speed):} The memory bus clock speed, measured in Hz (e.g., MHz), determines how many clock cycles occur per second. A higher clock speed results in faster communication between the CPU and RAM, leading to improved system performance and decreased latency. Modern memory buses often use Double Data Rate (DDR) protocols, which allow data to be transferred on both the rising and falling edges of the clock signal, effectively doubling the data rate without increasing the clock frequency.
+    \item \textbf{Protocols:} Memory buses employ specific communication protocols to manage data exchange. Examples include DDR4 SDRAM, GDDR6 (for graphics cards), and LPDDR5 (for mobile devices). These protocols define the timing, signaling, and data transfer mechanisms, each optimized for specific applications (e.g., high bandwidth for GPUs, low power for mobile devices).
+\end{itemize}
+As data rates increase, parallel buses face challenges with timing skew, power consumption, electromagnetic interference, and crosstalk. Serial buses, like PCIe (which uses SDR but with advanced encoding), offer a solution by sending data bit-serially, reducing the number of conductors and simplifying design.[32]
+
+\section{Modern Advancements and Future Trends}
+The relentless pursuit of higher performance and efficiency continues to drive innovation in memory technologies and hierarchy design, addressing current bottlenecks and enabling future computing paradigms.
+
+\subsection{Emerging Memory Technologies (Persistent Memory, HBM, NVM)}
+Several emerging memory technologies are poised to reshape the memory hierarchy, offering new trade-offs and capabilities.
+\begin{itemize}
+    \item \textbf{Persistent Memory (PMem):} Also known as Storage-Class Memory (SCM), PMem is a new type of non-volatile memory that fits into standard DIMM (memory) slots. It retains its content through power cycles, bridging the gap between volatile DRAM and slower, traditional storage like SSDs. PMem is slower than DRAM but provides higher throughput than SSDs and NVMe, and offers larger capacities at a lower cost per GB than DRAM, though still more expensive than NVMe. Its key advantages include sub-flash SSD latencies, increased throughput, and data persistence after power loss. PMem can be accessed in block mode (like storage for app compatibility) or direct access (DAX) mode (like memory for lowest latency).[33] Applications include fraud detection, cyberthreat analysis, financial trading, and real-time processing of large IoT datasets.
+    \item \textbf{High Bandwidth Memory (HBM):} HBM is a revolutionary memory technology that offers significantly higher memory bandwidth compared to traditional GDDR and DDR memory solutions. This is achieved through a wide memory bus and a 3D-stacked architecture using Through-Silicon Vias (TSVs), which vertically integrates multiple memory layers. HBM provides exceptional data transfer rates (e.g., NVIDIA's H100 GPU with HBM3 delivers up to 3TB/s). Its benefits include lower power consumption due to reduced data travel distance, a compact form factor enabling higher GPU density, reduced latency due to proximity to the CPU/GPU, and improved thermal efficiency. HBM is essential for data-intensive workloads in high-performance computing (HPC), artificial intelligence (AI), large language models (LLMs), and high-end gaming, where it helps overcome the "memory wall" by increasing data throughput.
+    \item \textbf{Other Non-Volatile Memory (NVM) Technologies:} NVM encompasses a range of technologies that retain data without power, providing fast, persistent storage. Beyond flash memory (used in SSDs), emerging NVMs include:
+    \begin{itemize}
+        \item \textbf{Phase Change Memory (PCM):} Stores data by changing the phase of materials, offering high endurance, fast write speeds, and low power consumption.
+        \item \textbf{Resistive RAM (RRAM/ReRAM):} Stores data by creating different resistance states. It has a simple structure, potential for high density and low power, and scalability, making it a promising candidate for future NVM.
+        \item \textbf{Spin-Transfer Torque Magnetic RAM (STT-MRAM):} Offers high speed, low power, and high endurance, though with complex manufacturing processes and scalability challenges.
+    \end{itemize}
+    These emerging NVMs are being explored for storage-class memory applications, embedded memory, neuromorphic computing (mimicking the human brain for AI), and quantum computing architectures. The introduction of Quad-Level Cell (QLC) SSDs, for instance, is already reshaping storage hierarchies by offering higher density and outperforming HDDs in speed and endurance, leading to significant cost reductions in large-scale storage systems. This continuous evolution of memory technologies demonstrates a dynamic shift in the memory hierarchy, where new tiers and capabilities are constantly emerging, blurring traditional boundaries and creating opportunities for more advanced and efficient computing systems.
+\end{itemize}
+
+\subsection{Challenges and Future Directions in Memory Hierarchy Design}
+Despite significant advancements, memory hierarchy design continues to face complex challenges, particularly as computing demands evolve.
+\begin{itemize}
+    \item \textbf{Scaling Challenges:} As semiconductor devices shrink to smaller sizes, maintaining performance and reducing power consumption become increasingly difficult. Scaling NVM technologies, for example, introduces issues like increased variability, reduced data retention, and higher leakage currents. This necessitates exploration of new materials and device architectures to overcome physical limitations.
+    \item \textbf{Security Concerns:} Ensuring the security of data within the memory hierarchy is a growing concern. As more sensitive data resides in various memory levels, protecting against attacks (e.g., cold boot attacks, side-channel attacks) becomes critical. Memory controllers are incorporating features like memory scrambling to convert user data into pseudo-random patterns, making it harder for unauthorized parties to reconstruct original data.
+    \item \textbf{Heterogeneous Memory Integration:} The proliferation of diverse memory technologies (DRAM, HBM, PMem, various NVMs) necessitates sophisticated integration strategies. Future memory hierarchies will likely be more heterogeneous, requiring advanced memory controllers and software layers to manage data movement and coherence across different memory types with varying characteristics.
+    \item \textbf{Compute-in-Memory (CIM):} To further reduce the "memory wall" bottleneck, research is exploring compute-in-memory architectures, where computational logic is placed closer to or even within memory arrays. This minimizes data movement, reducing latency and energy consumption, particularly for AI and data-intensive workloads. In-Memory Compute (IMC) is already revolutionizing data processing by moving data from slower storage into faster RAM for direct processing, eliminating I/O bottlenecks and dramatically reducing latency.
+    \item \textbf{Software-Hardware Co-design:} Optimal utilization of the complex memory hierarchy requires close cooperation between programmers, hardware designers, and compiler developers. Programmers are responsible for data placement and I/O, hardware for data movement between memory and caches, and optimizing compilers for generating cache-efficient code. Future trends will emphasize more intelligent compilers and runtime systems that can dynamically adapt data placement and computation to the evolving memory hierarchy.
+\end{itemize}
+These challenges highlight that memory hierarchy design remains an active and critical area of research and development, continuously adapting to the demands of increasingly complex and data-intensive computing applications.
+\newpage
+\section{ Implementation Results and Simulation Analysis}
+
+This section presents the results from simulating the direct-mapped cache implementation, verified through waveform screenshots and TCL console logs.  
+
+\subsection*{Output Simulation}
+\begin{figure}[H]
+    \centering
+ \includegraphics[width=0.9\textwidth]{1 Screenshot 2025-06-12 094716.png}
+ \includegraphics[width=0.9\textwidth]{3 Screenshot 2025-06-12 094858.png}
+\end{figure}
+ \begin{figure}[H]
+    \centering
+ 
+ \includegraphics[width=0.8\textwidth]{2 Screenshot 2025-06-12 094815.png}
+ \includegraphics[width=0.8\textwidth]{13 Screenshot 2025-06-12 095526.png}
+\end{figure}
+
+
+\subsection{ Observed Simulation Behavior}
+
+\textbf{Initial State:} At simulation start (0--50 ns), \texttt{rst} is high. All counters are 0 and \texttt{cache\_dirty\_bit\_status} is 0.
+
+\textbf{Read Miss and Cache Fill:}
+\begin{itemize}
+    \item \texttt{cpu\_read = 1}, \texttt{cpu\_write = 0}, various \texttt{cpu\_addr} values.
+    \item \texttt{cache\_miss = 1}, \texttt{cache\_hit = 0}, confirming cold misses.
+    \item \texttt{dram\_read = 1} and \texttt{dram\_ready = 1} after delay.
+    \item Cache lines are updated, \texttt{valid\_bit} is set, \texttt{cpu\_data\_out} reflects data.
+\end{itemize}
+
+\textbf{Write Operation and Dirty Bit Update:}
+\begin{itemize}
+    \item \texttt{cpu\_write = 1}, \texttt{cpu\_read = 0}, with various \texttt{cpu\_data\_in}.
+    \item \texttt{cache\_dirty\_bit\_status} becomes 1.
+    \item \texttt{dram\_write = 1}, data sent as per write policy.
+\end{itemize}
+
+\textbf{Read Hits:}
+\begin{itemize}
+    \item \texttt{cache\_hit = 1}, \texttt{cache\_miss = 0}.
+    \item \texttt{hit\_count} increments; \texttt{dram\_read/write = 0}.
+\end{itemize}
+
+\subsection{ Detailed Log Analysis}
+
+\textbf{Initial Write Miss (\textasciitilde35 ns)}:
+\begin{verbatim}
+Time=35000, Addr=00000000, Data=00000000, Read=0, Write=1, Ready=1, Hit=0, Miss=1
+\end{verbatim}
+
+Subsequent writes show \texttt{Hit=1}, \texttt{Dirty Bit=1}. Read hits follow.
+
+\textbf{Specific Miss Event (605 ns)}:
+\begin{verbatim}
+Time=605000, Addr=00001010, Read=1, Hit=0, Miss=1, Dirty Bit=1
+\end{verbatim}
+
+This confirms a conflict miss, evicting a dirty block under a write-back policy.
+
+\subsection{Performance Counters Summary}
+
+\textbf{Hit Count:} 74 \\
+\textbf{Miss Count:} 6 \\
+\textbf{Total Operations:} 80 \\
+\textbf{Hit Rate:} $\frac{74}{80} = 92.5\%$ \\
+\textbf{Miss Rate:} $\frac{6}{80} = 7.5\%$
+
+\vspace{1em}
+
+\subsection{Interpretation}
+
+The results confirm correct behavior of the direct-mapped cache. \\
+\textbf{Functional Correctness:} Proper identification of hits and misses, accurate interaction with DRAM. \\
+\textbf{Performance:} High hit rate (92.5\%) and low miss rate. \\
+\textbf{Locality:} Strong temporal and spatial locality in access patterns. \\
+\textbf{Conflict Miss Example:} Observed at 605 ns, typical for direct-mapped caches.
+
+
+\section{ Conclusion}
+
+The memory hierarchy plays a crucial role in achieving high system performance. Multi-level caches and virtual memory significantly reduce average memory latency. In multiprocessor environments, cache coherence protocols are essential for maintaining data consistency and ensuring reliable program execution. This report demonstrated a functioning direct-mapped cache with effective hit/miss handling and notable performance gains through locality exploitation. Furthermore, it explored various software and hardware optimization strategies, as well as modern advancements and future trends in memory technologies, highlighting their impact on computer architecture. Understanding these intricate interdependencies is vital for designing and developing high-performance computing systems.
+
+
+\newpage
+\section{ References}
+
+Siggelkow, Andreas. \emph{05\_folien\_mmu01.pdf - Memory Management Unit and Cache}. RWU, March 20, 2025.
+\newline
+\url{https://en.wikipedia.org/wiki/Memory_hierarchy} [2]
+
+\newline
+\url{https://www.baeldung.com/cs/cache-friendly-code} [18]
+\newline
+\url{http://lb.lax.hackaday.io/page/395763-what-is-memory-controllers} [26]
+\newline
+\url{https://en.wikipedia.org/wiki/Bus_(computing)} [32]
+\newline
+\url{https://www.numberanalytics.com/blog/ultimate-guide-to-bus-in-computer-architecture} [28]
+\newline
+\url{https://algocademy.com/blog/understanding-cache-and-memory-optimization-boosting-your-codes-performance/} [20]
+\newline
+\url{https://unstop.com/blog/memory-hierarchy-in-computer-architecture} [1]
+\newline
+\url{https://www.wevolver.com/article/in-memory-compute-transforming-data-processing-for-speed-and-scalability} [39]
+
+\newline
+\url{https://www.geeksforgeeks.org/locality-of-reference-and-cache-operation-in-cache-memory/} [5]
+
+
+\end{document}

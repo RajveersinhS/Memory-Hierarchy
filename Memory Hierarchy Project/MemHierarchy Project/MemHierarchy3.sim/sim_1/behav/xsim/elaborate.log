@@ -1,0 +1,25 @@
+Vivado Simulator v2024.2.0
+Copyright 1986-2022 Xilinx, Inc. All Rights Reserved.
+Copyright 2022-2024 Advanced Micro Devices, Inc. All Rights Reserved.
+Running: C:/Xilinx/Vivado/2024.2/bin/unwrapped/win64.o/xelab.exe --incr --debug typical --relax --mt 2 -L xil_defaultlib -L uvm -L unisims_ver -L unimacro_ver -L secureip --snapshot tb_cpu_interface_behav xil_defaultlib.tb_cpu_interface xil_defaultlib.glbl -log elaborate.log 
+Using 2 slave threads.
+Starting static elaboration
+Pass Through NonSizing Optimizer
+WARNING: [VRFC 10-3823] variable 'cpu_data_out' might have multiple concurrent drivers [C:/Users/91982/MemHierarchy3/MemHierarchy3.srcs/sources_1/new/tb_cpu_interface.sv:67]
+WARNING: [VRFC 10-3823] variable 'cpu_ready' might have multiple concurrent drivers [C:/Users/91982/MemHierarchy3/MemHierarchy3.srcs/sources_1/new/tb_cpu_interface.sv:68]
+WARNING: [VRFC 10-3823] variable 'cache_hit' might have multiple concurrent drivers [C:/Users/91982/MemHierarchy3/MemHierarchy3.srcs/sources_1/new/tb_cpu_interface.sv:69]
+WARNING: [VRFC 10-3823] variable 'cache_miss' might have multiple concurrent drivers [C:/Users/91982/MemHierarchy3/MemHierarchy3.srcs/sources_1/new/tb_cpu_interface.sv:70]
+WARNING: [VRFC 10-3823] variable 'cache_dirty_bit_status' might have multiple concurrent drivers [C:/Users/91982/MemHierarchy3/MemHierarchy3.srcs/sources_1/new/tb_cpu_interface.sv:71]
+WARNING: [VRFC 10-3823] variable 'dram_addr' might have multiple concurrent drivers [C:/Users/91982/MemHierarchy3/MemHierarchy3.srcs/sources_1/new/tb_cpu_interface.sv:99]
+Completed static elaboration
+Starting simulation data flow analysis
+WARNING: [XSIM 43-4100] "C:/Users/91982/MemHierarchy3/MemHierarchy3.sim/sim_1/behav/xsim/glbl.v" Line 6. Module glbl has a timescale but at least one module in design doesn't have timescale.
+WARNING: [XSIM 43-4100] "C:/Users/91982/MemHierarchy3/MemHierarchy3.sim/sim_1/behav/xsim/glbl.v" Line 6. Module glbl has a timescale but at least one module in design doesn't have timescale.
+Completed simulation data flow analysis
+Time Resolution for simulation is 1ps
+Compiling module xil_defaultlib.cache
+Compiling module xil_defaultlib.cpu_interface_default
+Compiling module xil_defaultlib.dram(DRAM_SIZE=65536)
+Compiling module xil_defaultlib.tb_cpu_interface
+Compiling module xil_defaultlib.glbl
+Built simulation snapshot tb_cpu_interface_behav

@@ -56,6 +56,3 @@ Concepts Used:
 - Data Access Simulation
 - Performance Analysis
 
----
-
-## Project Structure
